@@ -1,0 +1,21 @@
+## Interface: 100002
+## Version: 1.0
+## Title: |cff31d6bbItem Level History|r
+## Notes: Tracks item level progress across characters
+## Author: Jaime Browne
+## SavedVariables: ILHDB
+## OptionalDeps: Ace3 # if a user wants to run Ace3 standalone
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceComm-3.0\AceComm-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+Libs\AceLocale-3.0\AceLocale-3.0.xml
+
+Libs\libs.xml
+
+Core.lua
+Options.lua
