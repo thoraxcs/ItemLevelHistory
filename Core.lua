@@ -9,14 +9,13 @@ local START_YEAR = 2022
 local SIDE_BUFFER = 10
 local LOWER_BUFFER = 50
 local UPPER_BUFFER = 20
-local GRAPH_WIDTH = 700
-local GRAPH_HEIGHT = 500
-local SUP_ACHIEVE = 158
-local EPIC_ACHIEVE = 183
-local STATUS_MESSAGE = " - 2 days of data required for a character to appear"
+local GRAPH_WIDTH = 720
+local GRAPH_HEIGHT = 480
+local SUP_ACHIEVE = 346 --Will need to be edited once I know what the superior/epic achievements are
+local EPIC_ACHIEVE = 372 --Do these achievements even exist this time around?
 
-local XPAC_DAY = 322
-local MAJOR_PATCH_DAY = 325
+local XPAC_DAY = 332 -- Global launch is day 333 UTC but it'll be 332 in the Western Hemisphere
+local MAJOR_PATCH_DAY = 332
 
 local WindowOpen = false
 local ClassColors = {
@@ -64,19 +63,16 @@ local ILHDB = LibStub("LibDataBroker-1.1"):NewDataObject("ILHDB", {
 	end,
 })
 local LibDBIcon = LibStub("LibDBIcon-1.0")
-local LibGraph = LibStub("LibGraph-2.0")
+local LibGraph = LibStub("HFSLibGraph-2.0")
 
 -- Functions
 function ILH:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("ILHDB", self.defaults, true)
+	self:GetCharacterInfo()
 	AC:RegisterOptionsTable("ILH_Options", self.options)
 	self.optionsFrame = ACD:AddToBlizOptions("ILH_Options", "Item Level History (ILH)")
-	local profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	AC:RegisterOptionsTable("ILH_Profiles", profiles)
-	ACD:AddToBlizOptions("ILH_Profiles", "Profiles", "Item Level History (ILH)")
 
 	self:RegisterChatCommand("ilh", "SlashCommand")
-	self:GetCharacterInfo()
 	
 	LibDBIcon:Register("ILH", ILHDB, self.db.profile.minimap)
 end
@@ -85,7 +81,7 @@ function ILH:GetCharacterInfo()
 	self.db.char.level = UnitLevel("player")
 end
 
-function ILH:SlashCommand(input, editbox)
+function ILH:SlashCommand(input, editbox)	
 	if input == "enable" then
 		self:Enable()
 		self:Print("ILH Enabled.")
@@ -111,13 +107,55 @@ function ILH:ToggleOptions()
 		if (ILH.GraphFrame) then
 			ILH.GraphFrame:Hide()
 		end
+		
+		local characters = ILH:GetCharacterList()
+		self.db.profile.delChar = nil
+		ILH.options.args.delChar.values = characters
 		ACD:Open("ILH_Options")
 	end
 end
 
+function ILH:DeleteRecord()
+	local chars = ILH:GetCharacterList()
+	if (self.db.profile.delChar) then
+		local result = mysplit(chars[self.db.profile.delChar], "-")
+		local server = result[1]:match'^%s*(.*%S)' or ''
+		local charname = result[2]:match'^%s*(.*%S)' or ''
+		local playerGUID = ILH:FindGUID(charname, server)
+		self.db.global.PlayerData[playerGUID] = nil
+	else
+		self:Print("No character selected to delete.")
+	end
+end
+
+function ILH:FindGUID(charname, server)
+	for k, v in pairs(self.db.global.PlayerData) do
+		if (v.Name == charname and v.Server == server) then
+			return k
+		end
+	end
+	return nil
+end
+
+function mysplit(inputstr, sep)
+        if sep == nil then
+                sep = "%s"
+        end
+        local t={}
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+                table.insert(t, str)
+        end
+        return t
+end
+
 -- Record character information to database
 function ILH:CharInfo()
-    local overall, equipped = GetAverageItemLevel()
+
+	local rioscore = 0
+	if (RaiderIO ~= nil) then
+		rioscore = RaiderIO.GetProfile("player").mythicKeystoneProfile.currentScore
+	end
+    local overall = GetAverageItemLevel()
 	local playerGUID = UnitGUID("player")
 	local playerClass = select(2, GetPlayerInfoByGUID(playerGUID))
 	local playerName = select(6, GetPlayerInfoByGUID(playerGUID))
@@ -126,17 +164,28 @@ function ILH:CharInfo()
 	
 	self.db.global.PlayerData = self.db.global.PlayerData or {}
 	pData = self.db.global.PlayerData
+	
 	if (pData[playerGUID] == nil) then
 		pData[playerGUID] = {}
-		pData[playerGUID].Class = playerClass
 		pData[playerGUID].Data = {}
 	end
 	pData[playerGUID].Name = playerName -- These are updated each time in case of player name/server changes
 	pData[playerGUID].Server = playerServer
-	pData[playerGUID].Class = playerClass -- can remove this one for release, redundant with one above OR NOT .. DH class disappeared?
-	pData[playerGUID].Data[tdate] = overall
+	pData[playerGUID].Class = playerClass
+	pData[playerGUID].Data[tdate] = { ["iLv"] = overall, ["rio"] = rioscore }
 
     return overall
+end
+
+function ILH:GetCharacterList()
+	local chars = {}
+	if (self.db) then
+		for gid, chr in pairs(self.db.global.PlayerData) do
+			tinsert(chars, chr.Server .. " - " .. chr.Name)
+		end
+	end
+	table.sort(chars)
+	return chars
 end
 
 function ILH:OpenGraph()
@@ -154,6 +203,7 @@ function ILH:OpenGraph()
 	local playerGUID = UnitGUID("player")
 	local data = {}
 	local tdate = GetTDate()
+	local precision = 0
 	
 	-- Build Graph Frame
 	if (not ILH.GraphFrame) then
@@ -164,9 +214,8 @@ function ILH:OpenGraph()
 		ILH.GraphFrame = graphFrame
 		
 		-- Set locked size of graph window
-		-- par = ILH.GraphFrame.frame:GetParent()  -- This is an adjusted to resolution option, but may not work well in other resolutions
-		ph = 480 -- par:GetHeight() / 3
-		pw = 720 -- ph * 1.5
+		ph = GRAPH_HEIGHT
+		pw = GRAPH_WIDTH
 		graphFrame:SetHeight(ph)
 		graphFrame:SetWidth(pw)
 		graphFrame.frame:SetResizeBounds(pw, ph, pw, ph)
@@ -175,18 +224,22 @@ function ILH:OpenGraph()
 		
 	-- Load relevant characters
 	local charsfordata = {}
+	local graphtype = "iLv"
+	if (self.db.profile.dataType == 2) then
+		graphtype = "mythic+"
+	end
 	if (self.db.profile.showChars == 1) then -- Current character only
-		ILH.GraphFrame:SetStatusText("Current character [" .. select(6, GetPlayerInfoByGUID(playerGUID)) .. "] iLv History through " .. date("%m/%d/%Y") .. STATUS_MESSAGE)
+		ILH.GraphFrame:SetStatusText("Current character [" .. select(6, GetPlayerInfoByGUID(playerGUID)) .. "] " .. graphtype .. " history through " .. date("%m/%d/%Y"))
 		tinsert(charsfordata, playerGUID)
 	elseif (self.db.profile.showChars == 2) then -- Server characters only
-		ILH.GraphFrame:SetStatusText("Server [" .. GetRealmName() .. "] character iLv History through " .. date("%m/%d/%Y") .. STATUS_MESSAGE)
+		ILH.GraphFrame:SetStatusText("Server [" .. GetRealmName() .. "] character " .. graphtype .. " history through " .. date("%m/%d/%Y"))
 		for gid, chr in pairs(self.db.global.PlayerData) do
 			if(chr.Server == self.db.global.PlayerData[playerGUID].Server) then
 				tinsert(charsfordata, gid)
 			end
 		end
 	else -- All characters
-		ILH.GraphFrame:SetStatusText("Account character iLv History through " .. date("%m/%d/%Y") .. STATUS_MESSAGE)
+		ILH.GraphFrame:SetStatusText("Account character " .. graphtype .. " history through " .. date("%m/%d/%Y"))
 		for gid, chr in pairs(self.db.global.PlayerData) do
 			tinsert(charsfordata, gid)
 		end
@@ -194,19 +247,24 @@ function ILH:OpenGraph()
 
 	local g = nil
 	if (ILH.GraphFrame.Graph == nil) then
-		g = LibGraph:CreateGraphLine("ILHGraph", ILH.GraphFrame.frame, "BOTTOMLEFT", "BOTTOMLEFT", 10, LOWER_BUFFER, pw - SIDE_BUFFER - 10, ph - LOWER_BUFFER - UPPER_BUFFER) -- play with these numbers if the graph isn't showing starting with 0,0,pw,ph
+		g = LibGraph:CreateGraphLine("ILHGraph", ILH.GraphFrame.frame, "BOTTOMLEFT", "BOTTOMLEFT", 10, LOWER_BUFFER, pw - SIDE_BUFFER - 10, ph - LOWER_BUFFER - UPPER_BUFFER)
 	else
 		g = ILH.GraphFrame.Graph
 	end
 	g:ResetData()
+	
 	-- Get data for each character
 	local firstday = 0
 	local lastday = 0
 	local dataseries = {}
 	for _, gid in ipairs(charsfordata) do
 		data = {}
-		for day, ilv in pairs(self.db.global.PlayerData[gid].Data) do
-			tinsert(data, {day, ilv})
+		for day, pdata in pairs(self.db.global.PlayerData[gid].Data) do
+			if (self.db.profile.dataType == 1) then
+				tinsert(data, {day, pdata.iLv})
+			else
+				tinsert(data, {day, pdata.rio})
+			end
 		end
 	
 		local xdates = {}
@@ -223,12 +281,15 @@ function ILH:OpenGraph()
 		local hasToday = false
 		for k, v in ipairs(xdates) do 
 			local day = indexOf(data, v)
-			
 			-- Limit data to certain cutoff if settings say to
 			if (self.db.profile.dateRange == 3 and data[day][1] < MAJOR_PATCH_DAY) then
 				startingdata = {MAJOR_PATCH_DAY, data[day][2]}
 			elseif (self.db.profile.dateRange == 2 and data[day][1] < XPAC_DAY) then
 				startingdata = {XPAC_DAY, data[day][2]}
+			elseif (self.db.profile.dateRange == 4 and data[day][1] < tdate - 7) then
+				startingdata = {tdate - 7, data[day][2]} -- Last Week
+			elseif (self.db.profile.dateRange == 5 and data[day][1] < tdate - 30) then
+				startingdata = {tdate - 30, data[day][2]} -- Last Month
 			else
 				-- Set a start point for data existing prior to the cutoff, null afterwards so it doesn't repeat
 				if (startingdata ~= nil and startingdata[1] < data[day][1]) then
@@ -267,9 +328,13 @@ function ILH:OpenGraph()
 			tinsert(sorteddata, {tdate, sorteddata[table.getn(sorteddata)][2]})
 		end
 		
+		if (self.db.profile.dataType == 1) then
+			precision = 2
+		end
+				
 		-- Add the character's graph line to the set of all lines
-		if (table.getn(sorteddata) > 0) then
-			tinsert(dataseries, {sorteddata, ClassColors[self.db.global.PlayerData[gid].Class]})
+		if (table.getn(sorteddata) > 0 and (sorteddata[table.getn(sorteddata)][2] ~= sorteddata[1][2] or not self.db.profile.hideNoProgress)) then
+			tinsert(dataseries, {sorteddata, ClassColors[self.db.global.PlayerData[gid].Class], self.db.global.PlayerData[gid].Name})
 		end
 	end
 	
@@ -277,9 +342,12 @@ function ILH:OpenGraph()
 	local superior = { {firstday, SUP_ACHIEVE}, {lastday, SUP_ACHIEVE + 0.001} }
 	local epic = { {firstday, EPIC_ACHIEVE}, {lastday, EPIC_ACHIEVE + 0.001} }
 	
+	if (table.getn(dataseries) == 0) then
+		self:Print("No data to graph with the selected options.")
+	end
 	if (self.db.profile.showAchievement) then
-		g:AddDataSeries(superior, ClassColors["SUPERIOR"], nil, DOTTED_ICON)
-		g:AddDataSeries(epic, ClassColors["EPIC"], nil, DOTTED_ICON)
+		g:AddDataSeries(superior, ClassColors["SUPERIOR"], nil, DOTTED_ICON, "Superior")
+		g:AddDataSeries(epic, ClassColors["EPIC"], nil, DOTTED_ICON, "Epic")
 	end
 	
 	-- Add data series to the graph
@@ -287,19 +355,35 @@ function ILH:OpenGraph()
 		if (not HasDay(ds[1], lastday)) then
 			tinsert(ds[1], LastValue(ds[1]))
 		end
-		g:AddDataSeries(ds[1], ds[2], nil, LINE_ICON)
+		
+		g:AddDataSeries(ds[1], ds[2], nil, LINE_ICON, ds[3], precision)
 	end
 	
 	-- Set graph parameters
-	g:SetGridSpacing(30, self.db.profile.labelRange) -- this should be based on data
+	if (self.db.profile.dataType == 1) then
+		g:SetGridSpacing(1, self.db.profile.labelRange) -- this should be based on data
+	else
+		g:SetGridSpacing(1, 500) -- Good for IO Scores
+	end
 	g:SetGridColor({0.5, 0.5, 0.5, 0.5})
 	g:SetAxisDrawing(true, true)
 	g:SetAxisColor({1.0, 1.0, 1.0, 1.0})
 	g:SetAutoScale(true) -- Have to use full auto scale because the graph will draw lines outside of the boundaries
-	g:SetYLabels(false, true)
+	g:SetYLabels(true, false)
 	
 	ILH.GraphFrame.Graph = g;
 	ILH.GraphFrame:Show()
+end
+
+function ILH:UpdateCharacterDatabase()
+	-- This is for updating the db data from v1.0 to v1.1
+	for k,v in pairs(self.db.global.PlayerData) do
+		for dk, dv in pairs(v.Data) do
+			if (type(dv) ~= "table") then
+				self.db.global.PlayerData[k].Data[dk] = { ["iLv"] = dv, ["rio"] = 0 }
+			end
+		end
+	end
 end
 
 -- Helper functions
@@ -342,6 +426,12 @@ do
         if (throttle > UpdateInterval) then
             ILH:CharInfo()
             throttle = 0
+			
+			local doonce = true
+			if (doonce) then
+				ILH:UpdateCharacterDatabase()
+				doonce = false
+			end
         end
     end
 end

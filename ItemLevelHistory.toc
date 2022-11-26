@@ -1,10 +1,10 @@
 ## Interface: 100002
 ## Version: 1.0
 ## Title: |cff31d6bbItem Level History|r
-## Notes: Tracks item level progress across characters
+## Notes: Tracks item level and mythic+ score progress across characters
 ## Author: Jaime Browne
 ## SavedVariables: ILHDB
-## OptionalDeps: Ace3 # if a user wants to run Ace3 standalone
+## OptionalDeps: Ace3, Raider.IO # if a user wants to run Ace3 standalone
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml

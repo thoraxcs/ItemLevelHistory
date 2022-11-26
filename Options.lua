@@ -11,6 +11,9 @@ ILH.defaults = {
 		showChars = 3,
 		labelRange = 13,
 		dateRange = 1,
+		dataType = 1,
+		hideNoProgress = true,
+		delChar = nil,
 	},
 }
 
@@ -29,7 +32,7 @@ ILH.options = {
 		optionsDetails = {
 			type = "description",
 			order = 2,
-			name = "\nCharacters must have at least 2 data points (logins on different days within the selected span) to appear on the graph.\n",
+			name = "\nCharacters must have at least 2 data points (logins on different days within the selected span) to appear on the graph.\nRaider.io required to track mythic+ score progress.",
 		},
 		ddgroup = {
 			type = "group",
@@ -51,7 +54,16 @@ ILH.options = {
 					order = 2,
 					name = "Date Range",
 					desc = "Range of dates",
-					values = {"All data", "Current Expansion", "Current Major Patch"},
+					values = {"All data", "Current Expansion (DF)", "Current Major Patch (10.0)", "Last Week (7 days)", "Last Month (30 days)"},
+					get = "GetValue",
+					set = "SetValue",
+				},
+				dataType = {
+					type = "select",
+					order = 3,
+					name = "Data Type",
+					desc = "What data to display on the graph",
+					values = {"Item Level", "Mythic+ Score"},
 					get = "GetValue",
 					set = "SetValue",
 				},
@@ -69,20 +81,47 @@ ILH.options = {
 		showAchievement = {
 			type = "toggle",
 			order = 5,
-			name = "Show Achievements",
+			name = "Show achievements",
 			desc = "Show 'Superior' and 'Epic' thresholds",
+			-- inline getter/setter example
+			get = "GetValue",
+			set = "SetValue",
+		},
+		hideNoProgress = {
+			type = "toggle",
+			order = 6,
+			name = "Hide no progress",
+			desc = "Do not show characters with no progress during the selected timespan",
 			-- inline getter/setter example
 			get = "GetValue",
 			set = "SetValue",
 		},
 		labelRange = {
 			type = "range",
-			order = 6,
+			order = 7,
 			name = "Label iLvl Axis Steps",
+			desc = "Gridline interval for item level graph",
 			-- this will look for a getter/setter on our handler object
 			get = "GetValue",
 			set = "SetValue",
 			min = 13, max = 52, step = 13,
+		},
+		delChar = {
+			type = "select",
+			order = 8,
+			name = "Delete Character",
+			desc = "Select a character to delete their data",
+			values = ILH:GetCharacterList(),
+			get = "GetValue",
+			set = "SetValue",
+		},
+		delButton = {
+			type = "execute",
+			order = 9,
+			name = "Delete",
+			func = function ()
+				ILH:DeleteRecord()
+			end,
 		},
 	},
 }

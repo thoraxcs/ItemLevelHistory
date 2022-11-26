@@ -10,5 +10,5 @@
 	<Include file="AceLocale-3.0\AceLocale-3.0.xml" />
 	<Script file="LibDataBroker-1.1\LibDataBroker-1.1.lua"/>
 	<Script file="LibDBIcon-1.0\LibDBIcon-1.0.lua"/>
-	<Script file="LibGraph-2.0\LibGraph-2.0.lua"/>
+	<Script file="HFSLibGraph-2.0\HFSLibGraph-2.0.lua"/>
 </Ui>
