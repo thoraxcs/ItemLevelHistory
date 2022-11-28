@@ -345,7 +345,7 @@ function ILH:OpenGraph()
 	if (table.getn(dataseries) == 0) then
 		self:Print("No data to graph with the selected options.")
 	end
-	if (self.db.profile.showAchievement) then
+	if (self.db.profile.showAchievement and self.db.profile.dataType == 1) then
 		g:AddDataSeries(superior, ClassColors["SUPERIOR"], nil, DOTTED_ICON, "Superior")
 		g:AddDataSeries(epic, ClassColors["EPIC"], nil, DOTTED_ICON, "Epic")
 	end
