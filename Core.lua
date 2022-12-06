@@ -16,6 +16,7 @@ local EPIC_ACHIEVE = 372 --Do these achievements even exist this time around?
 
 local XPAC_DAY = 332 -- Global launch is day 333 UTC but it'll be 332 in the Western Hemisphere
 local MAJOR_PATCH_DAY = 332
+local SEASON_RESETS = { 330, 347 }
 
 local WindowOpen = false
 local ClassColors = {
@@ -152,7 +153,7 @@ end
 function ILH:CharInfo()
 
 	local rioscore = 0
-	if (RaiderIO ~= nil) then
+	if (RaiderIO ~= nil and RaiderIO.GetProfile("player") ~= nil and RaiderIO.GetProfile("player").mythicKeystoneProfile ~= nil) then
 		rioscore = RaiderIO.GetProfile("player").mythicKeystoneProfile.currentScore
 	end
     local overall = GetAverageItemLevel()
@@ -258,6 +259,7 @@ function ILH:OpenGraph()
 	local lastday = 0
 	local dataseries = {}
 	for _, gid in ipairs(charsfordata) do
+		local resetdays = table.shallow_copy(SEASON_RESETS)
 		data = {}
 		for day, pdata in pairs(self.db.global.PlayerData[gid].Data) do
 			if (self.db.profile.dataType == 1) then
@@ -266,7 +268,7 @@ function ILH:OpenGraph()
 				tinsert(data, {day, pdata.rio})
 			end
 		end
-	
+
 		local xdates = {}
 		local sorteddata = {}
 		local startingdata = nil
@@ -276,6 +278,12 @@ function ILH:OpenGraph()
 		end
 		-- sort the keys
 		table.sort(xdates)
+				
+		-- Remove season resets from before this character had data to prevent false lines at 0 for the history of the character
+		while (table.getn(resetdays) > 0 and (firstday == 0 or resetdays[1] <= firstday) and resetdays[1] <= xdates[1]) do
+			table.remove(resetdays, 1)
+		end		
+		
 		-- use the keys to retrieve the values in the sorted order
 		local previlv = 0
 		local hasToday = false
@@ -305,9 +313,19 @@ function ILH:OpenGraph()
 				if (not HasDay(data, prevday) and table.getn(sorteddata) > 0) then
 					tinsert(sorteddata, {prevday, sorteddata[table.getn(sorteddata)][2]})
 				end
+				
+				-- On the day of a season reset, place a point at the last point score of the previous season and a 0 on today's
+				-- date to create the sharp reset. FOR R.IO SCORES ONLY
+				if (self.db.profile.dataType == 2 and table.getn(resetdays) > 0 and resetdays[1] <= data[day][1] and table.getn(sorteddata) > 0) then
+					tinsert(sorteddata, {resetdays[1], sorteddata[table.getn(sorteddata)][2]})
+					tinsert(sorteddata, {resetdays[1], 0})
+					table.remove(resetdays, 1)
+				end
+				
+				-- Add this record to the data set
+				tinsert(sorteddata, data[day])
 			
 				-- These are used to determine the bounds of the SUPERIOR and EPIC lines
-				tinsert(sorteddata, data[day])
 				previlv = data[day][1]
 				if (v < firstday or firstday == 0) then
 					firstday = v
@@ -414,6 +432,14 @@ function indexOf(array, value)
         end
     end
     return nil
+end
+
+function table.shallow_copy(t)
+  local t2 = {}
+  for k,v in pairs(t) do
+    t2[k] = v
+  end
+  return t2
 end
 
 -- Update Loop and Event Triggers
