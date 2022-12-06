@@ -16,7 +16,7 @@ local EPIC_ACHIEVE = 372 --Do these achievements even exist this time around?
 
 local XPAC_DAY = 332 -- Global launch is day 333 UTC but it'll be 332 in the Western Hemisphere
 local MAJOR_PATCH_DAY = 332
-local SEASON_RESETS = { 330, 347 }
+local SEASON_RESETS = { 332, 347 }
 
 local WindowOpen = false
 local ClassColors = {

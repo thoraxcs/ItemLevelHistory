@@ -1,5 +1,5 @@
 ## Interface: 100002
-## Version: 1.0
+## Version: 1.1
 ## Title: |cff31d6bbItem Level History|r
 ## Notes: Tracks item level and mythic+ score progress across characters
 ## Author: Jaime Browne
