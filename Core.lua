@@ -14,8 +14,7 @@ local GRAPH_HEIGHT = 480
 local SUP_ACHIEVE = 346 --Will need to be edited once I know what the superior/epic achievements are
 local EPIC_ACHIEVE = 372 --Do these achievements even exist this time around?
 
-local XPAC_DAY = 332 -- Global launch is day 333 UTC but it'll be 332 in the Western Hemisphere
-local MAJOR_PATCH_DAY = 332
+local XPAC_DAY = { 332 } -- Global launch is day 333 UTC but it'll be 332 in the Western Hemisphere
 local SEASON_RESETS = { 332, 347 }
 
 local WindowOpen = false
@@ -280,9 +279,9 @@ function ILH:OpenGraph()
 		table.sort(xdates)
 				
 		-- Remove season resets from before this character had data to prevent false lines at 0 for the history of the character
-		while (table.getn(resetdays) > 0 and (firstday == 0 or resetdays[1] <= firstday) and resetdays[1] <= xdates[1]) do
-			table.remove(resetdays, 1)
-		end		
+		--while (table.getn(resetdays) > 0 and (firstday == 0 or resetdays[1] <= firstday) and resetdays[1] <= xdates[1]) do
+		--	table.remove(resetdays, 1)
+		--end		
 		
 		-- use the keys to retrieve the values in the sorted order
 		local previlv = 0
@@ -290,10 +289,10 @@ function ILH:OpenGraph()
 		for k, v in ipairs(xdates) do 
 			local day = indexOf(data, v)
 			-- Limit data to certain cutoff if settings say to
-			if (self.db.profile.dateRange == 3 and data[day][1] < MAJOR_PATCH_DAY) then
-				startingdata = {MAJOR_PATCH_DAY, data[day][2]}
-			elseif (self.db.profile.dateRange == 2 and data[day][1] < XPAC_DAY) then
-				startingdata = {XPAC_DAY, data[day][2]}
+			if (self.db.profile.dateRange == 3 and data[day][1] < SEASON_RESETS[table.getn(SEASON_RESETS)]) then
+				startingdata = {SEASON_RESETS[table.getn(SEASON_RESETS)], data[day][2]}
+			elseif (self.db.profile.dateRange == 2 and data[day][1] < XPAC_DAY[table.getn(XPAC_DAY)]) then
+				startingdata = {XPAC_DAY[table.getn(XPAC_DAY)], data[day][2]}
 			elseif (self.db.profile.dateRange == 4 and data[day][1] < tdate - 7) then
 				startingdata = {tdate - 7, data[day][2]} -- Last Week
 			elseif (self.db.profile.dateRange == 5 and data[day][1] < tdate - 30) then
@@ -316,11 +315,11 @@ function ILH:OpenGraph()
 				
 				-- On the day of a season reset, place a point at the last point score of the previous season and a 0 on today's
 				-- date to create the sharp reset. FOR R.IO SCORES ONLY
-				if (self.db.profile.dataType == 2 and table.getn(resetdays) > 0 and resetdays[1] <= data[day][1] and table.getn(sorteddata) > 0) then
-					tinsert(sorteddata, {resetdays[1], sorteddata[table.getn(sorteddata)][2]})
-					tinsert(sorteddata, {resetdays[1], 0})
-					table.remove(resetdays, 1)
-				end
+				--if (self.db.profile.dataType == 2 and table.getn(resetdays) > 0 and resetdays[1] <= data[day][1] and table.getn(sorteddata) > 0) then
+				--	tinsert(sorteddata, {resetdays[1], sorteddata[table.getn(sorteddata)][2]})
+				--	tinsert(sorteddata, {resetdays[1], 0})
+				--	table.remove(resetdays, 1)
+				--end
 				
 				-- Add this record to the data set
 				tinsert(sorteddata, data[day])
@@ -402,13 +401,28 @@ function ILH:UpdateCharacterDatabase()
 			end
 		end
 	end
+	-- This is for updating the db data from v1.1 to v1.2
+	for k,v in pairs(self.db.global.PlayerData) do
+		for dk, dv in pairs(v.Data) do
+			if (dk < 300) then -- Fix dates from before release
+				local fixeddate = dk + 365 + 1
+				print(fixeddate)
+				self.db.global.PlayerData[k].Data[fixeddate] = {}
+				self.db.global.PlayerData[k].Data[fixeddate].iLv = self.db.global.PlayerData[k].Data[dk].iLv
+				self.db.global.PlayerData[k].Data[fixeddate].rio = self.db.global.PlayerData[k].Data[dk].rio
+				self.db.global.PlayerData[k].Data[dk] = nil
+				print(dk)
+				print(self.db.global.PlayerData[k].Data[dk])
+			end
+		end
+	end
 end
 
 -- Helper functions
 function GetTDate()
 	local dayofyear = date("*t").yday
-	local years = START_YEAR - date("*t").year
-	return dayofyear + years
+	local years = date("*t").year - START_YEAR
+	return dayofyear + (years * 365)
 end
 
 function HasDay(data, day)

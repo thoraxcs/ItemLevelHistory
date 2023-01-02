@@ -54,7 +54,7 @@ ILH.options = {
 					order = 2,
 					name = "Date Range",
 					desc = "Range of dates",
-					values = {"All data", "Current Expansion (DF)", "Current Major Patch (10.0)", "Last Week (7 days)", "Last Month (30 days)"},
+					values = {"All data", "Current Expansion (DF)", "Current Season (10.0)", "Last Week (7 days)", "Last Month (30 days)"},
 					get = "GetValue",
 					set = "SetValue",
 				},
